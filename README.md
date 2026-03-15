@@ -1,6 +1,6 @@
 # 介绍
 
-最好用的 Xray 一键安装脚本 & 管理脚本
+Xray 一键安装脚本与管理脚本
 
 # 特点
 
@@ -56,6 +56,29 @@ bash <(wget -qO- -o- https://github.com/Impersonality/Xray/raw/main/install.sh)
 - 新建 VLESS-REALITY 默认启用 ML-DSA-65
 - 需要使用支持 `mldsa65` 的 Xray core
 - 分享链接会附带 `pqv`, 且 target 证书链总长度需大于 `3500`
+
+# VLESS-REALITY + ML-DSA-65
+
+- 新建 `VLESS-REALITY` 节点时，默认同时生成 `X25519` 与 `ML-DSA-65`
+- 生成的分享链接会带上 `sid`、`spx`、`pqv`
+- `xray info [name]` 在显示常规 URL 之外，还会额外输出一份 `Clash` 格式节点
+- 已有未启用 `ML-DSA-65` 的旧 REALITY 节点不会被强制改写
+
+示例:
+
+```text
+vless://uuid@example.com:443?type=tcp&encryption=none&security=reality&pbk=public_key&fp=chrome&sni=www.amazon.com&sid=a2&spx=%2F&pqv=verify_value&flow=xtls-rprx-vision#node-name
+```
+
+```text
+- {name: "node-name", type: vless, server: example.com, port: 443, uuid: uuid, encryption: none, tls: true, servername: www.amazon.com, client-fingerprint: chrome, network: tcp, flow: xtls-rprx-vision, udp: true, reality-opts: {public-key: public_key, short-id: "a2", _spider-x: "/"}, pqv: verify_value}
+```
+
+注意:
+
+- `pqv` 只有在该 REALITY 节点启用了 `ML-DSA-65` 时才会出现
+- `Clash` 格式主要面向 `Clash.Meta / Mihomo`
+- 目标站点需要能通过脚本内置的 REALITY target 校验
 
 # 帮助
 

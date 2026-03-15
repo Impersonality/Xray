@@ -113,6 +113,10 @@ msg_ul() {
     echo -e "\e[4m$@\e[0m"
 }
 
+uri_encode() {
+    jq -nr --arg v "$1" '$v|@uri'
+}
+
 # pause
 pause() {
     echo
@@ -1308,8 +1312,8 @@ get() {
             [[ $? != 0 ]] && err "无法读取此文件: $is_config_file"
             is_json_data_more=$(jq '.inbounds[0]|.streamSettings|.network,.tcpSettings.header.type,(.kcpSettings|.seed,.header.type),.quicSettings.header.type,.wsSettings.path,.httpSettings.path,.grpcSettings.serviceName,.xhttpSettings.path' <<<$is_json_str)
             is_json_data_host=$(jq '.inbounds[0]|.streamSettings|.grpc_host,.wsSettings.headers.Host,.httpSettings.host[0],.xhttpSettings.host' <<<$is_json_str)
-            is_json_data_reality=$(jq '.inbounds[0]|.streamSettings|.security,(.realitySettings|.serverNames[0],(.publicKey // .password),.privateKey,.mldsa65Seed)' <<<$is_json_str)
-            is_up_var_set=(null is_protocol port uuid trojan_password ss_method ss_password door_addr door_port is_dynamic_port is_socks_user is_socks_pass net tcp_type kcp_seed kcp_type quic_type ws_path h2_path grpc_path xhttp_path grpc_host ws_host h2_host xhttp_host is_reality is_servername is_public_key is_private_key is_mldsa65_seed)
+            is_json_data_reality=$(jq '.inbounds[0]|.streamSettings|.security,(.realitySettings|.serverNames[0],(.publicKey // .password),.privateKey,.mldsa65Seed,.shortIds[0])' <<<$is_json_str)
+            is_up_var_set=(null is_protocol port uuid trojan_password ss_method ss_password door_addr door_port is_dynamic_port is_socks_user is_socks_pass net tcp_type kcp_seed kcp_type quic_type ws_path h2_path grpc_path xhttp_path grpc_host ws_host h2_host xhttp_host is_reality is_servername is_public_key is_private_key is_mldsa65_seed is_shortid)
             [[ $is_debug ]] && msg "\n------------- debug: $is_config_file -------------"
             i=0
             for v in $(sed 's/""/null/g;s/"//g' <<<"$is_json_data_base $is_json_data_more $is_json_data_host $is_json_data_reality"); do
@@ -1424,6 +1428,9 @@ get() {
             [[ ! $header_type ]] && header_type=none
             is_stream='tcpSettings:{header:{type:"'$header_type'"}}'
             if [[ $is_reality ]]; then
+                [[ ! $is_fingerprint ]] && is_fingerprint=chrome
+                [[ ! $is_spiderx ]] && is_spiderx=/
+                [[ ! $is_shortid && (! $is_config_file || $is_set_new_protocol) ]] && is_shortid=$(printf '%02x' $(shuf -i 0-255 -n1))
                 if [[ $is_check_reality_target ]]; then
                     [[ ! $is_mldsa65_seed ]] && get_mldsa65
                     [[ $is_mldsa65_seed && ! $is_mldsa65_verify ]] && get_mldsa65 "$is_mldsa65_seed"
@@ -1433,11 +1440,11 @@ get() {
                     [[ ! $is_servername ]] && is_servername=$is_random_servername
                 fi
                 [[ ! $is_private_key ]] && get_pbk
-                is_stream='security:"reality",realitySettings:{dest:"'${is_servername}\:443'",serverNames:["'${is_servername}'",""],publicKey:"'$is_public_key'",privateKey:"'$is_private_key'",shortIds:[""]}'
-                [[ $is_mldsa65_seed ]] && is_stream='security:"reality",realitySettings:{dest:"'${is_servername}\:443'",serverNames:["'${is_servername}'",""],publicKey:"'$is_public_key'",privateKey:"'$is_private_key'",shortIds:[""],mldsa65Seed:"'$is_mldsa65_seed'"}'
+                is_stream='security:"reality",realitySettings:{dest:"'${is_servername}\:443'",serverNames:["'${is_servername}'",""],publicKey:"'$is_public_key'",privateKey:"'$is_private_key'",shortIds:["'$is_shortid'"]}'
+                [[ $is_mldsa65_seed ]] && is_stream='security:"reality",realitySettings:{dest:"'${is_servername}\:443'",serverNames:["'${is_servername}'",""],publicKey:"'$is_public_key'",privateKey:"'$is_private_key'",shortIds:["'$is_shortid'"],mldsa65Seed:"'$is_mldsa65_seed'"}'
                 if [[ $is_client ]]; then
-                    is_stream='security:"reality",realitySettings:{serverName:"'${is_servername}'",fingerprint:"chrome",password:"'$is_public_key'",shortId:"",spiderX:"/"}'
-                    [[ $is_mldsa65_verify ]] && is_stream='security:"reality",realitySettings:{serverName:"'${is_servername}'",fingerprint:"chrome",password:"'$is_public_key'",shortId:"",mldsa65Verify:"'$is_mldsa65_verify'",spiderX:"/"}'
+                    is_stream='security:"reality",realitySettings:{serverName:"'${is_servername}'",fingerprint:"'$is_fingerprint'",password:"'$is_public_key'",shortId:"'$is_shortid'",spiderX:"'$is_spiderx'"}'
+                    [[ $is_mldsa65_verify ]] && is_stream='security:"reality",realitySettings:{serverName:"'${is_servername}'",fingerprint:"'$is_fingerprint'",password:"'$is_public_key'",shortId:"'$is_shortid'",mldsa65Verify:"'$is_mldsa65_verify'",spiderX:"'$is_spiderx'"}'
                 fi
             fi
             ;;
@@ -1600,6 +1607,7 @@ info() {
     if [[ ! $is_protocol ]]; then
         get info $1
     fi
+    unset is_url is_clash is_clash_reality_opts
     # is_color=$(shuf -i 41-45 -n1)
     is_color=44
     case $net in
@@ -1622,13 +1630,24 @@ info() {
             is_color=41
             is_can_change=(0 1 5 10 11)
             is_info_show=(0 1 2 3 15 8 16 17 18)
-            is_info_str=($is_protocol $is_addr $port $uuid xtls-rprx-vision reality $is_servername "chrome" $is_public_key)
-            is_url="$is_protocol://$uuid@$is_addr:$port?encryption=none&security=reality&flow=xtls-rprx-vision&type=tcp&sni=$is_servername&pbk=$is_public_key&fp=chrome#${is_alias}-$net-$is_addr"
+            [[ ! $is_fingerprint ]] && is_fingerprint=chrome
+            [[ ! $is_spiderx ]] && is_spiderx=/
+            is_info_str=($is_protocol $is_addr $port $uuid xtls-rprx-vision reality $is_servername "$is_fingerprint" $is_public_key)
+            is_url="$is_protocol://$uuid@$is_addr:$port?type=tcp&encryption=none&security=reality&pbk=$is_public_key&fp=$is_fingerprint&sni=$is_servername"
+            [[ $is_shortid ]] && is_url="${is_url}&sid=${is_shortid}"
+            [[ $is_spiderx ]] && is_url="${is_url}&spx=$(uri_encode "$is_spiderx")"
             [[ $is_mldsa65_verify ]] && {
                 is_info_show+=(20)
                 is_info_str+=($is_mldsa65_verify)
-                is_url="${is_url/\#${is_alias}-/&pqv=${is_mldsa65_verify}#${is_alias}-}"
+                is_url="${is_url}&pqv=${is_mldsa65_verify}"
             }
+            is_url="${is_url}&flow=xtls-rprx-vision#$(uri_encode "${is_config_name%.json}")"
+            is_clash_reality_opts="public-key: ${is_public_key}"
+            [[ $is_shortid ]] && is_clash_reality_opts="${is_clash_reality_opts}, short-id: \"${is_shortid}\""
+            [[ $is_spiderx ]] && is_clash_reality_opts="${is_clash_reality_opts}, _spider-x: \"${is_spiderx}\""
+            is_clash="- {name: \"${is_config_name%.json}\", type: vless, server: ${is_addr}, port: ${port}, uuid: ${uuid}, encryption: none, tls: true, servername: ${is_servername}, client-fingerprint: ${is_fingerprint}, network: tcp, flow: xtls-rprx-vision, udp: true, reality-opts: {${is_clash_reality_opts}}"
+            [[ $is_mldsa65_verify ]] && is_clash="${is_clash}, pqv: ${is_mldsa65_verify}"
+            is_clash="${is_clash}}"
         fi
         ;;
     ss)
@@ -1694,6 +1713,10 @@ info() {
     if [[ $is_url ]]; then
         msg "------------- ${info_list[12]} -------------"
         msg "\e[4;${is_color}m${is_url}\e[0m"
+    fi
+    if [[ $is_clash ]]; then
+        msg "------------- Clash 格式 -------------"
+        msg "\e[${is_color}m${is_clash}\e[0m"
     fi
     if [[ $is_no_auto_tls ]]; then
         is_tmp_path=$path

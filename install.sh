@@ -1,7 +1,7 @@
 #!/bin/bash
 
-author=233boy
-# github=https://github.com/233boy/xray
+author=Impersonality
+# github=https://github.com/Impersonality/Xray
 
 # bash fonts colors
 red='\e[31m'
@@ -70,7 +70,8 @@ is_conf_dir=$is_core_dir/conf
 is_log_dir=/var/log/$is_core
 is_sh_bin=/usr/local/bin/$is_core
 is_sh_dir=$is_core_dir/sh
-is_sh_repo=$author/$is_core
+is_sh_repo=Impersonality/Xray
+is_sh_branch=main
 is_pkg="wget unzip"
 is_config_json=$is_core_dir/config.json
 tmp_var_lists=(
@@ -168,7 +169,7 @@ download() {
         is_ok=$is_core_ok
         ;;
     sh)
-        link=https://github.com/${is_sh_repo}/releases/latest/download/code.zip
+        link=https://github.com/${is_sh_repo}/archive/refs/heads/${is_sh_branch}.zip
         name="$is_core_name 脚本"
         tmpfile=$tmpsh
         is_ok=$is_sh_ok
@@ -386,7 +387,8 @@ main() {
     if [[ $local_install ]]; then
         cp -rf $PWD/* $is_sh_dir
     else
-        unzip -qo $is_sh_ok -d $is_sh_dir
+        unzip -qo $is_sh_ok -d $tmpdir/shzip
+        cp -rf $tmpdir/shzip/${is_sh_repo##*/}-${is_sh_branch}/. $is_sh_dir
     fi
 
     # create core bin dir

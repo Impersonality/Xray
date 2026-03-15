@@ -43,7 +43,7 @@
 
 # 文档
 
-安装及使用：https://233boy.com/xray/xray-script/
+安装及使用：https://github.com/Impersonality/Xray#readme
 
 # 安装
 
@@ -62,7 +62,7 @@ bash <(wget -qO- -o- https://github.com/Impersonality/Xray/raw/main/install.sh)
 使用：`xray help`
 
 ```
-Xray script v1.21 by 233boy
+Xray script v1.21 by Impersonality
 Usage: xray [options]... [args]...
 
 基本:
@@ -130,6 +130,6 @@ Usage: xray [options]... [args]...
    h, help                                         显示此帮助界面
 
 谨慎使用 del, ddel, 此选项会直接删除配置; 无需确认
-反馈问题) https://github.com/233boy/xray/issues
-文档(doc) https://233boy.com/xray/xray-script/
+反馈问题) https://github.com/Impersonality/Xray/issues
+文档(doc) https://github.com/Impersonality/Xray#readme
 ```

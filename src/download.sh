@@ -6,7 +6,8 @@ get_latest_version() {
         ;;
     sh)
         name="$is_core_name 脚本"
-        url="https://api.github.com/repos/$is_sh_repo/releases/latest?v=$RANDOM"
+        latest_ver=$is_sh_branch
+        return
         ;;
     caddy)
         name="Caddy"
@@ -40,9 +41,16 @@ download() {
     sh)
         name="$is_core_name 脚本"
         tmpfile=$tmpdir/sh.zip
-        link="https://github.com/${is_sh_repo}/releases/download/${latest_ver}/code.zip"
+        if [[ $latest_ver == $is_sh_branch ]]; then
+            link="https://github.com/${is_sh_repo}/archive/refs/heads/${is_sh_branch}.zip"
+            is_sh_unzip_dir=${is_sh_repo##*/}-${is_sh_branch}
+        else
+            link="https://github.com/${is_sh_repo}/archive/refs/tags/${latest_ver}.zip"
+            is_sh_unzip_dir=${is_sh_repo##*/}-${latest_ver}
+        fi
         download_file
-        unzip -qo $tmpfile -d $is_sh_dir
+        unzip -qo $tmpfile -d $tmpdir
+        cp -rf $tmpdir/$is_sh_unzip_dir/. $is_sh_dir
         chmod +x $is_sh_bin
         ;;
     dat)

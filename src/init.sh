@@ -1,7 +1,7 @@
 #!/bin/bash
 
-author=233boy
-# github=https://github.com/233boy/xray
+author=Impersonality
+# github=https://github.com/Impersonality/Xray
 
 # bash fonts colors
 red='\e[31m'
@@ -85,17 +85,19 @@ is_conf_dir=$is_core_dir/conf
 is_log_dir=/var/log/$is_core
 is_sh_bin=/usr/local/bin/$is_core
 is_sh_dir=$is_core_dir/sh
-is_sh_repo=$author/$is_core
+is_sh_repo=Impersonality/Xray
+is_sh_branch=main
 is_pkg="wget unzip jq qrencode"
 is_config_json=$is_core_dir/config.json
 is_caddy_bin=/usr/local/bin/caddy
 is_caddy_dir=/etc/caddy
 is_caddy_repo=caddyserver/caddy
 is_caddyfile=$is_caddy_dir/Caddyfile
-is_caddy_conf=$is_caddy_dir/$author
+is_caddy_conf=$is_caddy_dir/233boy
 is_caddy_service=$(systemctl list-units --full -all | grep caddy.service)
 is_http_port=80
 is_https_port=443
+is_doc_url=https://github.com/$is_sh_repo#readme
 
 # core ver
 is_core_ver=$($is_core_bin version | head -n1 | cut -d " " -f1-2)

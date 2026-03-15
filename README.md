@@ -45,6 +45,12 @@
 
 安装及使用：https://233boy.com/xray/xray-script/
 
+# 安装
+
+```bash
+bash <(wget -qO- -o- https://github.com/Impersonality/Xray/raw/main/install.sh)
+```
+
 提示:
 
 - 新建 VLESS-REALITY 默认启用 ML-DSA-65

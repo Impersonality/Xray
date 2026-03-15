@@ -72,6 +72,7 @@ info_list=(
     "指纹 (Fingerprint)"
     "公钥 (Public key)"
     "用户名 (Username)"
+    "ML-DSA-65 Verify"
 )
 change_list=(
     "更改协议"
@@ -149,6 +150,76 @@ get_pbk() {
     is_tmp_pbk=($($is_core_bin x25519 | sed 's/.*://'))
     is_private_key=${is_tmp_pbk[0]}
     is_public_key=${is_tmp_pbk[1]}
+}
+
+get_mldsa65() {
+    if [[ $1 ]]; then
+        is_tmp_mldsa65=$($is_core_bin mldsa65 -i "$1" 2>/dev/null)
+    else
+        is_tmp_mldsa65=$($is_core_bin mldsa65 2>/dev/null)
+    fi
+    [[ $? != 0 || ! $is_tmp_mldsa65 ]] && {
+        err "当前 Xray core 不支持 ML-DSA-65, 请先执行: $(_green $is_core update core)"
+    }
+    is_mldsa65_seed=$(sed -n 's/^Seed: //p' <<<$is_tmp_mldsa65)
+    is_mldsa65_verify=$(sed -n 's/^Verify: //p' <<<$is_tmp_mldsa65)
+    [[ ! $is_mldsa65_seed || ! $is_mldsa65_verify ]] && {
+        err "无法生成 ML-DSA-65 密钥."
+    }
+}
+
+probe_reality_target() {
+    is_reality_target=$1
+    [[ ! $is_reality_target ]] && return 1
+    is_reality_target_addr=$is_reality_target
+    [[ ! $(grep -E ':[0-9]+$' <<<$is_reality_target_addr) ]] && is_reality_target_addr=${is_reality_target_addr}:443
+    is_reality_target_ping=$($is_core_bin tls ping "$is_reality_target_addr" 2>/dev/null)
+    [[ $? != 0 || ! $is_reality_target_ping ]] && return 1
+    is_reality_target_cert_len=$(sed -n "s/.*Certificate chain's total length: *\\([0-9][0-9]*\\).*/\\1/p" <<<$is_reality_target_ping | head -1)
+    [[ ! $is_reality_target_cert_len ]] && return 1
+    [[ $(grep X25519MLKEM768 <<<$is_reality_target_ping) ]] && is_reality_target_pq=1 || unset is_reality_target_pq
+}
+
+check_reality_target() {
+    probe_reality_target $1 || {
+        err "无法检测目标网站 ($1) 的证书链长度, 请检查连通性或升级 Xray core."
+    }
+    [[ $is_reality_target_cert_len -le 3500 ]] && {
+        err "目标网站 ($1) 的证书链总长度为 (${is_reality_target_cert_len}), ML-DSA-65 要求大于 3500."
+    }
+    [[ ! $is_reality_target_pq ]] && {
+        warn "目标网站 ($1) 不支持 X25519MLKEM768, ML-DSA-65 仍可启用, 但并非完整抗量子."
+    }
+}
+
+pick_reality_servername() {
+    readarray -t is_try_servernames <<<"$(printf '%s\n' "${servername_list[@]}" | shuf)"
+    for v in "${is_try_servernames[@]}"; do
+        probe_reality_target $v || continue
+        [[ $is_reality_target_cert_len -le 3500 ]] && continue
+        is_servername=$v
+        return
+    done
+    warn "默认 serverName 无法满足 ML-DSA-65 的 target 要求, 请手动输入."
+    while :; do
+        ask string is_servername "请输入新的 serverName:"
+        [[ $(grep -i "^233boy.com$" <<<$is_servername) ]] && {
+            msg "$is_err 你干嘛～哎呦～"
+            unset is_servername
+            continue
+        }
+        probe_reality_target $is_servername || {
+            warn "无法检测目标网站 ($is_servername) 的证书链长度, 请重新输入."
+            unset is_servername
+            continue
+        }
+        [[ $is_reality_target_cert_len -le 3500 ]] && {
+            warn "目标网站 ($is_servername) 的证书链总长度为 (${is_reality_target_cert_len}), ML-DSA-65 要求大于 3500."
+            unset is_servername
+            continue
+        }
+        return
+    done
 }
 
 show_list() {
@@ -1007,7 +1078,10 @@ add() {
         }
 
         [[ ! $(is_test uuid $uuid) ]] && uuid=
-        [[ ! $(grep -i reality <<<$is_new_protocol) ]] && is_reality=
+        [[ ! $(grep -i reality <<<$is_new_protocol) ]] && {
+            is_reality=
+            unset is_mldsa65_seed is_mldsa65_verify
+        }
     fi
 
     # no-auto-tls only use h2,ws,grpc
@@ -1080,6 +1154,19 @@ add() {
         [[ $is_use_socks_user ]] && is_socks_user=$is_use_socks_user
         [[ $is_use_socks_pass ]] && is_socks_pass=$is_use_socks_pass
     fi
+
+    if [[ $is_reality ]]; then
+        if [[ $is_mldsa65_seed || $is_mldsa65_verify ]]; then
+            is_mldsa65=1
+        elif [[ ! $is_change || $is_set_new_protocol ]]; then
+            is_mldsa65=1
+        else
+            unset is_mldsa65
+        fi
+    else
+        unset is_mldsa65
+    fi
+    [[ $is_reality && $is_mldsa65 ]] && is_check_reality_target=1 || unset is_check_reality_target
 
     if [[ $is_use_tls ]]; then
         if [[ ! $is_no_auto_tls && ! $is_caddy && ! $is_gen ]]; then
@@ -1161,6 +1248,17 @@ add() {
 
     fi
 
+    if [[ $is_reality && $is_mldsa65 ]]; then
+        is_test_json=1
+        create server $is_new_protocol
+        $is_core_bin -test <<<"$is_new_json" &>/dev/null
+        [[ $? != 0 ]] && {
+            is_test_json=
+            err "当前 Xray core 不支持 ML-DSA-65, 请先执行: $(_green $is_core update core)"
+        }
+        is_test_json=
+    fi
+
     # install caddy
     if [[ $is_install_caddy ]]; then
         get install-caddy
@@ -1210,8 +1308,8 @@ get() {
             [[ $? != 0 ]] && err "无法读取此文件: $is_config_file"
             is_json_data_more=$(jq '.inbounds[0]|.streamSettings|.network,.tcpSettings.header.type,(.kcpSettings|.seed,.header.type),.quicSettings.header.type,.wsSettings.path,.httpSettings.path,.grpcSettings.serviceName,.xhttpSettings.path' <<<$is_json_str)
             is_json_data_host=$(jq '.inbounds[0]|.streamSettings|.grpc_host,.wsSettings.headers.Host,.httpSettings.host[0],.xhttpSettings.host' <<<$is_json_str)
-            is_json_data_reality=$(jq '.inbounds[0]|.streamSettings|.security,(.realitySettings|.serverNames[0],.publicKey,.privateKey)' <<<$is_json_str)
-            is_up_var_set=(null is_protocol port uuid trojan_password ss_method ss_password door_addr door_port is_dynamic_port is_socks_user is_socks_pass net tcp_type kcp_seed kcp_type quic_type ws_path h2_path grpc_path xhttp_path grpc_host ws_host h2_host xhttp_host is_reality is_servername is_public_key is_private_key)
+            is_json_data_reality=$(jq '.inbounds[0]|.streamSettings|.security,(.realitySettings|.serverNames[0],(.publicKey // .password),.privateKey,.mldsa65Seed)' <<<$is_json_str)
+            is_up_var_set=(null is_protocol port uuid trojan_password ss_method ss_password door_addr door_port is_dynamic_port is_socks_user is_socks_pass net tcp_type kcp_seed kcp_type quic_type ws_path h2_path grpc_path xhttp_path grpc_host ws_host h2_host xhttp_host is_reality is_servername is_public_key is_private_key is_mldsa65_seed)
             [[ $is_debug ]] && msg "\n------------- debug: $is_config_file -------------"
             i=0
             for v in $(sed 's/""/null/g;s/"//g' <<<"$is_json_data_base $is_json_data_more $is_json_data_host $is_json_data_reality"); do
@@ -1232,12 +1330,14 @@ get() {
             path="${ws_path}${h2_path}${grpc_path}${xhttp_path}"
             host="${ws_host}${h2_host}${grpc_host}${xhttp_host}"
             header_type="${tcp_type}${kcp_type}${quic_type}"
+            unset is_mldsa65 is_mldsa65_verify is_check_reality_target
             if [[ $is_reality == 'reality' ]]; then
                 net=reality
             else
                 is_reality=
             fi
             [[ ! $kcp_seed ]] && is_no_kcp_seed=1
+            [[ $is_mldsa65_seed ]] && get_mldsa65 "$is_mldsa65_seed"
             is_config_name=$is_config_file
             if [[ $is_dynamic_port ]]; then
                 is_dynamic_port_file=$is_conf_dir/$is_dynamic_port
@@ -1324,11 +1424,20 @@ get() {
             [[ ! $header_type ]] && header_type=none
             is_stream='tcpSettings:{header:{type:"'$header_type'"}}'
             if [[ $is_reality ]]; then
-                [[ ! $is_servername ]] && is_servername=$is_random_servername
+                if [[ $is_check_reality_target ]]; then
+                    [[ ! $is_mldsa65_seed ]] && get_mldsa65
+                    [[ $is_mldsa65_seed && ! $is_mldsa65_verify ]] && get_mldsa65 "$is_mldsa65_seed"
+                    [[ ! $is_servername ]] && pick_reality_servername
+                    check_reality_target $is_servername
+                else
+                    [[ ! $is_servername ]] && is_servername=$is_random_servername
+                fi
                 [[ ! $is_private_key ]] && get_pbk
                 is_stream='security:"reality",realitySettings:{dest:"'${is_servername}\:443'",serverNames:["'${is_servername}'",""],publicKey:"'$is_public_key'",privateKey:"'$is_private_key'",shortIds:[""]}'
+                [[ $is_mldsa65_seed ]] && is_stream='security:"reality",realitySettings:{dest:"'${is_servername}\:443'",serverNames:["'${is_servername}'",""],publicKey:"'$is_public_key'",privateKey:"'$is_private_key'",shortIds:[""],mldsa65Seed:"'$is_mldsa65_seed'"}'
                 if [[ $is_client ]]; then
-                    is_stream='security:"reality",realitySettings:{serverName:"'${is_servername}'",fingerprint:"chrome",publicKey:"'$is_public_key'",shortId:"",spiderX:"/"}'
+                    is_stream='security:"reality",realitySettings:{serverName:"'${is_servername}'",fingerprint:"chrome",password:"'$is_public_key'",shortId:"",spiderX:"/"}'
+                    [[ $is_mldsa65_verify ]] && is_stream='security:"reality",realitySettings:{serverName:"'${is_servername}'",fingerprint:"chrome",password:"'$is_public_key'",shortId:"",mldsa65Verify:"'$is_mldsa65_verify'",spiderX:"/"}'
                 fi
             fi
             ;;
@@ -1515,6 +1624,11 @@ info() {
             is_info_show=(0 1 2 3 15 8 16 17 18)
             is_info_str=($is_protocol $is_addr $port $uuid xtls-rprx-vision reality $is_servername "chrome" $is_public_key)
             is_url="$is_protocol://$uuid@$is_addr:$port?encryption=none&security=reality&flow=xtls-rprx-vision&type=tcp&sni=$is_servername&pbk=$is_public_key&fp=chrome#233boy-$net-$is_addr"
+            [[ $is_mldsa65_verify ]] && {
+                is_info_show+=(20)
+                is_info_str+=($is_mldsa65_verify)
+                is_url="${is_url/\#233boy-/&pqv=${is_mldsa65_verify}#233boy-}"
+            }
         fi
         ;;
     ss)

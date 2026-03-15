@@ -15,7 +15,7 @@
 - 兼容 Xray 命令
 - 强大的快捷参数
 - 支持所有常用协议
-- 一键添加 VLESS-REALITY (默认)
+- 一键添加 VLESS-REALITY + ML-DSA-65 (默认)
 - 一键添加 Shadowsocks 2022
 - 一键添加 VMess-(TCP/mKCP)
 - 一键添加 VMess-(WS/gRPC)-TLS
@@ -44,6 +44,12 @@
 # 文档
 
 安装及使用：https://233boy.com/xray/xray-script/
+
+提示:
+
+- 新建 VLESS-REALITY 默认启用 ML-DSA-65
+- 需要使用支持 `mldsa65` 的 Xray core
+- 分享链接会附带 `pqv`, 且 target 证书链总长度需大于 `3500`
 
 # 帮助
 

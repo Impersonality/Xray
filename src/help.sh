@@ -70,6 +70,9 @@ show_help() {
         for v in "${help_info[@]}"; do
             msg "$v"
         done
+        msg "提示: 新建 VLESS-REALITY 默认启用 ML-DSA-65"
+        msg "      需要支持 mldsa65 的 Xray core, 分享链接会附带 pqv"
+        msg "      target 证书链总长度需大于 3500\n"
         msg "谨慎使用 del, ddel, 此选项会直接删除配置; 无需确认"
         msg "反馈问题) $(msg_ul https://github.com/${is_sh_repo}/issues) "
         msg "文档(doc) $(msg_ul https://233boy.com/$is_core/$is_core-script/)"

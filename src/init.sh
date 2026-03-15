@@ -1,6 +1,6 @@
 #!/bin/bash
 
-author=Impersonality
+author=XR
 # github=https://github.com/Impersonality/Xray
 
 # bash fonts colors
@@ -87,6 +87,7 @@ is_sh_bin=/usr/local/bin/$is_core
 is_sh_dir=$is_core_dir/sh
 is_sh_repo=Impersonality/Xray
 is_sh_branch=main
+is_alias=xr
 is_pkg="wget unzip jq qrencode"
 is_config_json=$is_core_dir/config.json
 is_caddy_bin=/usr/local/bin/caddy

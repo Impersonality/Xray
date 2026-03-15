@@ -1,6 +1,6 @@
 #!/bin/bash
 
-author=Impersonality
+author=XR
 # github=https://github.com/Impersonality/Xray
 
 # bash fonts colors

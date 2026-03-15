@@ -62,7 +62,7 @@ bash <(wget -qO- -o- https://github.com/Impersonality/Xray/raw/main/install.sh)
 使用：`xray help`
 
 ```
-Xray script v1.21 by Impersonality
+Xray script v1.21 by XR
 Usage: xray [options]... [args]...
 
 基本:
